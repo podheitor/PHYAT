@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "PHYBRV - PodHeitor YouTube Bulk Related Video",
+  "version": "1.2.0",
+  "description": "Bulk set Related Video on multiple YouTube Studio videos simultaneously. Browse your channel's videos and apply a related video to all selected videos at once.",
+  "author": "Heitor Faria",
+  "homepage_url": "https://www.youtube.com/@podheitor",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://studio.youtube.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://studio.youtube.com/*"],
+      "js": ["modal.js", "content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["page_bridge.js"],
+      "matches": ["https://studio.youtube.com/*"]
+    }
+  ]
+}

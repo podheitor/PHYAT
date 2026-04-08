@@ -1,0 +1,178 @@
+/* PHYBRV - Popup Styles */
+/* Author: Heitor Faria | License: GPL v3 */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  width: 320px;
+  min-height: 360px;
+  background: #0f0f0f;
+  color: #f1f1f1;
+  font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.popup-container {
+  padding: 24px 20px;
+}
+
+/* Header */
+.popup-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 8px;
+}
+
+.popup-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(255, 0, 0, 0.3);
+}
+
+.popup-title-group {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.popup-title-group h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #f1f1f1;
+  letter-spacing: -0.5px;
+}
+
+.popup-version {
+  font-size: 11px;
+  color: #717171;
+  padding: 2px 8px;
+  background: #222;
+  border-radius: 10px;
+  border: 1px solid #333;
+}
+
+/* Description */
+.popup-description {
+  font-size: 13px;
+  color: #aaa;
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+
+/* Divider */
+.popup-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #333, transparent);
+  margin: 16px 0;
+}
+
+/* Info Rows */
+.popup-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.popup-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.popup-info-label {
+  font-size: 12px;
+  color: #717171;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  flex-shrink: 0;
+}
+
+.popup-info-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #ddd;
+  font-weight: 500;
+}
+
+/* Status Dots */
+.popup-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.popup-status-connected {
+  background: #2ea043;
+  box-shadow: 0 0 6px rgba(46, 160, 67, 0.5);
+}
+
+/* Instructions */
+.popup-instructions {
+  margin-top: 4px;
+}
+
+.popup-instructions h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ddd;
+  margin-bottom: 10px;
+}
+
+.popup-instructions ol {
+  padding-left: 18px;
+  font-size: 12px;
+  color: #aaa;
+  line-height: 1.8;
+}
+
+.popup-instructions strong {
+  color: #ddd;
+  font-weight: 500;
+}
+
+/* Tip */
+.popup-tip {
+  margin-top: 14px;
+  padding: 10px 14px;
+  background: #1a2e1a;
+  border: 1px solid #2ea04333;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #8fdf8f;
+  line-height: 1.5;
+}
+
+/* Footer */
+.popup-footer {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #222;
+  text-align: center;
+  font-size: 11px;
+  color: #555;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.popup-link,
+.popup-footer-link {
+  color: #cc5500;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.popup-link:hover,
+.popup-footer-link:hover {
+  color: #ff7722;
+  text-decoration: underline;
+}
