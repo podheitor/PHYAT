@@ -13,6 +13,9 @@
   let isRunning = false;
   let abortController = null;
   let currentMessageIndex = 0;
+  let aiChatObserver = null;
+  let conversationHistory = [];
+  let lastAIResponseTime = 0;
 
   // ---- Default config ----
 
@@ -20,7 +23,13 @@
     messages: [],
     intervalSeconds: 60,
     recurring: true,
-    randomOrder: false
+    randomOrder: false,
+    aiEnabled: false,
+    llmEndpoint: 'https://api.openai.com/v1/chat/completions',
+    llmApiKey: '',
+    llmModel: 'gpt-4o-mini',
+    llmPersona: 'You are a helpful and friendly assistant for a YouTube live stream. Keep replies short and engaging.',
+    llmMinDelaySeconds: 30
   };
 
   // ---- Initialize ----
@@ -82,7 +91,7 @@
 
     fabButton = document.createElement('div');
     fabButton.id = 'phyat-livechat-fab';
-    fabButton.className = 'phyat-fab phyat-fab-left';
+    fabButton.className = 'phyat-fab phyat-fab-secondary';
     fabButton.innerHTML = `
       <button class="phyat-fab-button phyat-fab-button-chat" id="phyat-livechat-fab-btn" title="PHYAT - Auto Live Chat Messages">
         <div class="phyat-fab-icon">
@@ -173,6 +182,84 @@
             </label>
           </div>
 
+          <div class="phyat-field" style="border-top:1px solid var(--phyat-border);padding-top:12px;margin-top:4px;">
+            <label class="phyat-label" style="font-size:13px;color:var(--phyat-text-muted);">🤖 AI Auto-Reply</label>
+          </div>
+
+          <div class="phyat-field">
+            <label class="phyat-checkbox-label">
+              <input type="checkbox" id="phyat-lc-ai-enabled" ${config.aiEnabled ? 'checked' : ''} />
+              <span>Enable AI to reply automatically to chat messages</span>
+            </label>
+          </div>
+
+          <div id="phyat-lc-ai-fields" style="display:${config.aiEnabled ? 'block' : 'none'}">
+            <div class="phyat-field">
+              <label class="phyat-label">LLM API Endpoint</label>
+              <input type="text" id="phyat-lc-ai-endpoint" class="phyat-input" value="${escapeHtml(config.llmEndpoint)}" placeholder="https://api.openai.com/v1/chat/completions" />
+              <p class="phyat-hint">OpenAI-compatible. Ollama: http://localhost:11434/api/chat</p>
+            </div>
+
+            <div class="phyat-field">
+              <label class="phyat-label">API Key</label>
+              <input type="password" id="phyat-lc-ai-key" class="phyat-input" value="${escapeHtml(config.llmApiKey)}" placeholder="sk-... (empty for local LLMs)" />
+            </div>
+
+            <div class="phyat-field">
+              <label class="phyat-label">Model</label>
+              <input type="text" id="phyat-lc-ai-model" class="phyat-input" value="${escapeHtml(config.llmModel)}" placeholder="gpt-4o-mini" />
+            </div>
+
+            <div class="phyat-field">
+              <label class="phyat-label">Persona (system prompt)</label>
+              <textarea id="phyat-lc-ai-persona" class="phyat-textarea" rows="3" placeholder="You are a helpful assistant for this live stream...">${escapeHtml(config.llmPersona)}</textarea>
+            </div>
+
+            <div class="phyat-field">
+              <label class="phyat-label">Min delay between AI replies (seconds)</label>
+              <input type="number" id="phyat-lc-ai-delay" class="phyat-input" min="10" max="300" value="${config.llmMinDelaySeconds}" />
+            </div>
+          </div>
+
+          <div class="phyat-field" style="border-top:1px solid var(--phyat-border);padding-top:12px;margin-top:4px;">
+            <label class="phyat-label" style="font-size:13px;color:var(--phyat-text-muted);">🤖 AI Auto-Reply</label>
+          </div>
+
+          <div class="phyat-field">
+            <label class="phyat-checkbox-label">
+              <input type="checkbox" id="phyat-lc-ai-enabled" ${config.aiEnabled ? 'checked' : ''} />
+              <span>Enable AI to reply automatically to chat messages</span>
+            </label>
+          </div>
+
+          <div id="phyat-lc-ai-fields" style="display:${config.aiEnabled ? 'block' : 'none'}">
+            <div class="phyat-field">
+              <label class="phyat-label">LLM API Endpoint</label>
+              <input type="text" id="phyat-lc-ai-endpoint" class="phyat-input" value="${escapeHtml(config.llmEndpoint)}" placeholder="https://api.openai.com/v1/chat/completions" />
+              <p class="phyat-hint">OpenAI-compatible. Ollama: http://localhost:11434/api/chat</p>
+            </div>
+
+            <div class="phyat-field">
+              <label class="phyat-label">API Key</label>
+              <input type="password" id="phyat-lc-ai-key" class="phyat-input" value="${escapeHtml(config.llmApiKey)}" placeholder="sk-... (empty for local LLMs)" />
+            </div>
+
+            <div class="phyat-field">
+              <label class="phyat-label">Model</label>
+              <input type="text" id="phyat-lc-ai-model" class="phyat-input" value="${escapeHtml(config.llmModel)}" placeholder="gpt-4o-mini" />
+            </div>
+
+            <div class="phyat-field">
+              <label class="phyat-label">Persona (system prompt)</label>
+              <textarea id="phyat-lc-ai-persona" class="phyat-textarea" rows="3" placeholder="You are a helpful assistant for this live stream...">${escapeHtml(config.llmPersona)}</textarea>
+            </div>
+
+            <div class="phyat-field">
+              <label class="phyat-label">Min delay between AI replies (seconds)</label>
+              <input type="number" id="phyat-lc-ai-delay" class="phyat-input" min="10" max="300" value="${config.llmMinDelaySeconds}" />
+            </div>
+          </div>
+
           <div class="phyat-status-bar" id="phyat-livechat-status" style="display:none">
             <div class="phyat-status-indicator"></div>
             <span class="phyat-status-text"></span>
@@ -195,6 +282,14 @@
     document.getElementById('phyat-livechat-close').addEventListener('click', closeConfigPanel);
     document.getElementById('phyat-livechat-save').addEventListener('click', saveConfigFromPanel);
     document.getElementById('phyat-livechat-toggle').addEventListener('click', toggleAutomation);
+
+    document.getElementById('phyat-lc-ai-enabled').addEventListener('change', (e) => {
+      document.getElementById('phyat-lc-ai-fields').style.display = e.target.checked ? 'block' : 'none';
+    });
+
+    document.getElementById('phyat-lc-ai-enabled').addEventListener('change', (e) => {
+      document.getElementById('phyat-lc-ai-fields').style.display = e.target.checked ? 'block' : 'none';
+    });
 
     if (isRunning) updateStatusUI();
   }
@@ -236,7 +331,15 @@
     const recurring = document.getElementById('phyat-livechat-recurring')?.checked ?? true;
     const randomOrder = document.getElementById('phyat-livechat-random')?.checked ?? false;
 
-    return { messages, intervalSeconds, recurring, randomOrder };
+    return {
+      messages, intervalSeconds, recurring, randomOrder,
+      aiEnabled: document.getElementById('phyat-lc-ai-enabled')?.checked ?? false,
+      llmEndpoint: document.getElementById('phyat-lc-ai-endpoint')?.value?.trim() || DEFAULT_CONFIG.llmEndpoint,
+      llmApiKey: document.getElementById('phyat-lc-ai-key')?.value || '',
+      llmModel: document.getElementById('phyat-lc-ai-model')?.value?.trim() || DEFAULT_CONFIG.llmModel,
+      llmPersona: document.getElementById('phyat-lc-ai-persona')?.value?.trim() || DEFAULT_CONFIG.llmPersona,
+      llmMinDelaySeconds: Math.max(10, parseInt(document.getElementById('phyat-lc-ai-delay')?.value) || 30)
+    };
   }
 
   // ---- Automation engine ----
@@ -253,8 +356,8 @@
     const config = getConfigFromPanel();
     await saveConfig(config);
 
-    if (config.messages.length === 0) {
-      showToast('⚠️ Please add at least one message.', 'warning');
+    if (config.messages.length === 0 && !config.aiEnabled) {
+      showToast('⚠️ Add messages or enable AI auto-reply to start.', 'warning');
       return;
     }
 
@@ -266,7 +369,14 @@
     updateStatusUI();
     showToast('▶ Auto chat started!', 'success');
 
-    runMessageLoop(config, abortController.signal);
+    if (config.messages.length > 0) {
+      runMessageLoop(config, abortController.signal);
+    }
+    if (config.aiEnabled) {
+      conversationHistory = [];
+      lastAIResponseTime = 0;
+      startAIChat(config, abortController.signal);
+    }
   }
 
   function stopAutomation() {
@@ -274,6 +384,12 @@
     isRunning = false;
     abortController?.abort();
     abortController = null;
+
+    if (aiChatObserver) {
+      aiChatObserver.disconnect();
+      aiChatObserver = null;
+    }
+    conversationHistory = [];
 
     updateToggleButton();
     hideStatusUI();
@@ -450,6 +566,123 @@
         reject(new DOMException('Aborted', 'AbortError'));
       }, { once: true });
     });
+  }
+
+  // ---- AI Auto-Reply ----
+
+  function startAIChat(config, signal) {
+    // Get the chat document (main page or iframe)
+    const getChatDoc = () => {
+      const chatFrame = document.querySelector('#chat-frame, iframe[src*="live_chat"]');
+      if (chatFrame) {
+        try { return chatFrame.contentDocument || chatFrame.contentWindow?.document; } catch { /* cross-origin */ }
+      }
+      return document;
+    };
+
+    // Wait for chat list to appear, then observe
+    const tryObserve = () => {
+      if (signal.aborted) return;
+      const chatDoc = getChatDoc();
+      const chatList =
+        chatDoc?.querySelector('#items.yt-live-chat-item-list-renderer') ||
+        chatDoc?.querySelector('yt-live-chat-item-list-renderer #items');
+
+      if (!chatList) {
+        setTimeout(tryObserve, 2000);
+        return;
+      }
+
+      const seenKeys = new Set();
+
+      aiChatObserver = new MutationObserver((mutations) => {
+        if (signal.aborted) { aiChatObserver?.disconnect(); return; }
+        for (const mutation of mutations) {
+          for (const node of mutation.addedNodes) {
+            if (node.nodeType !== Node.ELEMENT_NODE) continue;
+            const msgEl = node.querySelector('#message');
+            const authorEl = node.querySelector('#author-name');
+            if (!msgEl || !authorEl) continue;
+            const key = authorEl.textContent.trim() + ':' + msgEl.textContent.trim();
+            if (!seenKeys.has(key)) {
+              seenKeys.add(key);
+              if (seenKeys.size > 200) seenKeys.delete(seenKeys.values().next().value);
+              processIncomingMessage(authorEl.textContent.trim(), msgEl.textContent.trim(), config);
+            }
+          }
+        }
+      });
+
+      aiChatObserver.observe(chatList, { childList: true });
+      console.log('[PHYAT:LiveChat] AI observer started');
+    };
+
+    setTimeout(tryObserve, 1500);
+  }
+
+  async function processIncomingMessage(author, text, config) {
+    if (!text || !isRunning) return;
+
+    const now = Date.now();
+    const minDelayMs = (config.llmMinDelaySeconds || 30) * 1000;
+    if (now - lastAIResponseTime < minDelayMs) return; // Rate limit
+
+    // Add to rolling history (max 10 turns)
+    conversationHistory.push({ role: 'user', content: `${author}: ${text}` });
+    if (conversationHistory.length > 10) conversationHistory.shift();
+
+    const reply = await callLLMApi(config, conversationHistory);
+    if (!reply || !isRunning) return;
+
+    lastAIResponseTime = Date.now();
+
+    // Add AI reply to history
+    conversationHistory.push({ role: 'assistant', content: reply });
+    if (conversationHistory.length > 20) conversationHistory.shift();
+
+    const sent = await sendChatMessage(reply);
+    if (sent) {
+      console.log('[PHYAT:LiveChat] AI replied:', reply);
+    }
+  }
+
+  async function callLLMApi(config, history) {
+    try {
+      const messages = [
+        { role: 'system', content: config.llmPersona || DEFAULT_CONFIG.llmPersona },
+        ...history
+      ];
+
+      const resp = await fetch(config.llmEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(config.llmApiKey ? { 'Authorization': `Bearer ${config.llmApiKey}` } : {})
+        },
+        body: JSON.stringify({
+          model: config.llmModel || DEFAULT_CONFIG.llmModel,
+          messages,
+          max_tokens: 200,
+          temperature: 0.8
+        })
+      });
+
+      if (!resp.ok) {
+        console.error('[PHYAT:LiveChat] LLM API error:', resp.status, await resp.text());
+        return null;
+      }
+
+      const data = await resp.json();
+
+      // OpenAI-compatible response format
+      return data?.choices?.[0]?.message?.content?.trim() ||
+             // Ollama /api/chat format
+             data?.message?.content?.trim() ||
+             null;
+    } catch (err) {
+      console.error('[PHYAT:LiveChat] LLM call failed:', err);
+      return null;
+    }
   }
 
   // Register with PHYAT

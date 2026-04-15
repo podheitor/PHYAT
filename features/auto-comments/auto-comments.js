@@ -74,7 +74,7 @@
 
     fabButton = document.createElement('div');
     fabButton.id = 'phyat-autocomments-fab';
-    fabButton.className = 'phyat-fab phyat-fab-secondary';
+    fabButton.className = 'phyat-fab';
     fabButton.innerHTML = `
       <button class="phyat-fab-button phyat-fab-button-comment" id="phyat-autocomments-fab-btn" title="PHYAT - Auto Comments">
         <div class="phyat-fab-icon">
