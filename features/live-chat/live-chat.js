@@ -647,43 +647,54 @@
   }
 
   async function callLLMApi(config, history) {
+    const endpoint   = config.llmEndpoint || DEFAULT_CONFIG.llmEndpoint;
+    const model      = config.llmModel    || DEFAULT_CONFIG.llmModel;
+    const persona    = config.llmPersona  || DEFAULT_CONFIG.llmPersona;
+    const isAnthropic = endpoint.includes('anthropic.com');
+    const isOllama    = endpoint.includes('localhost') || endpoint.includes('127.0.0.1');
+
     try {
-      const messages = [
-        { role: 'system', content: config.llmPersona || DEFAULT_CONFIG.llmPersona },
-        ...history
-      ];
+      let headers, body, respExtract;
 
-      const resp = await fetch(config.llmEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(config.llmApiKey ? { 'Authorization': `Bearer ${config.llmApiKey}` } : {})
-        },
-        body: JSON.stringify({
-          model: config.llmModel || DEFAULT_CONFIG.llmModel,
-          messages,
-          max_tokens: 200,
-          temperature: 0.8
-        })
-      });
+      if (isAnthropic) {
+        // Anthropic Messages API — different auth header + body format
+        headers = {
+          'content-type': 'application/json',
+          'x-api-key': config.llmApiKey || '',
+          'anthropic-version': '2023-06-01'
+        };
+        const userMessages = history.filter(m => m.role !== 'system');
+        body = JSON.stringify({ model, max_tokens: 200, system: persona, messages: userMessages });
+        respExtract = (data) => data?.content?.[0]?.text?.trim() || null;
+      } else if (isOllama && endpoint.includes('/api/chat')) {
+        // Ollama /api/chat format
+        headers = { 'content-type': 'application/json' };
+        body = JSON.stringify({ model, stream: false, messages: [{ role: 'system', content: persona }, ...history] });
+        respExtract = (data) => data?.message?.content?.trim() || null;
+      } else {
+        // OpenAI-compatible (default)
+        headers = {
+          'content-type': 'application/json',
+          ...(config.llmApiKey ? { 'authorization': `Bearer ${config.llmApiKey}` } : {})
+        };
+        body = JSON.stringify({ model, messages: [{ role: 'system', content: persona }, ...history], max_tokens: 200, temperature: 0.8 });
+        respExtract = (data) => data?.choices?.[0]?.message?.content?.trim() || null;
+      }
 
+      const resp = await fetch(endpoint, { method: 'POST', headers, body });
       if (!resp.ok) {
         console.error('[PHYAT:LiveChat] LLM API error:', resp.status, await resp.text());
         return null;
       }
 
       const data = await resp.json();
-
-      // OpenAI-compatible response format
-      return data?.choices?.[0]?.message?.content?.trim() ||
-             // Ollama /api/chat format
-             data?.message?.content?.trim() ||
-             null;
+      return respExtract(data);
     } catch (err) {
       console.error('[PHYAT:LiveChat] LLM call failed:', err);
       return null;
     }
   }
+
 
   // Register with PHYAT
   window.PHYAT.features = window.PHYAT.features || {};
