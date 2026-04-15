@@ -12,11 +12,28 @@
   const RESULT_KEY = 'phyat_related_video_result';
   let fabButton = null;
   let modal = null;
+  let bridgeReady = false;
 
   // ---- Initialize ----
 
+  function injectPageBridge() {
+    if (document.getElementById('phyat-bridge-script')) return;
+    const script = document.createElement('script');
+    script.id = 'phyat-bridge-script';
+    script.src = chrome.runtime.getURL('page_bridge.js');
+    script.onload = () => console.log('[PHYAT:RelatedVideo] Page bridge injected');
+    (document.head || document.documentElement).appendChild(script);
+    window.addEventListener('message', (event) => {
+      if (event.data?.source === 'phyat-bridge' && event.data?.action === 'ready') {
+        bridgeReady = true;
+        console.log('[PHYAT:RelatedVideo] Page bridge ready');
+      }
+    });
+  }
+
   function init() {
     console.log('[PHYAT:RelatedVideo] Initializing...');
+    injectPageBridge();
     checkPendingResults();
 
     if (isStudioEditPage()) {
