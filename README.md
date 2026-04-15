@@ -8,9 +8,9 @@
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/Screenshot_20260415_110808.png" alt="Auto Comments panel" width="320" />
-  <img src="docs/screenshots/Screenshot_20260415_110921.png" alt="Auto Live Chat panel" width="320" />
-  <img src="docs/screenshots/Screenshot_20260415_111043.png" alt="Related Video feature" width="320" />
+  <img src="docs/screenshots/auto-comments.png" alt="Auto Comments panel — PHYAT" width="320" />
+  <img src="docs/screenshots/live-chat.png" alt="Auto Live Chat + AI panel — PHYAT" width="320" />
+  <img src="docs/screenshots/related-video.png" alt="Bulk Related Video — PHYAT" width="320" />
 </p>
 
 ---
