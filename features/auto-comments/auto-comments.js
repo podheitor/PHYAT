@@ -27,16 +27,14 @@
 
   function init() {
     console.log('[PHYAT:AutoComments] Initializing...');
-    checkPendingTask();
     watchNavigation();
   }
 
   function watchNavigation() {
     const check = () => {
-      if (isOnVideoPage()) {
-        handleVideoPage();
-      } else if (isOnYouTube()) {
+      if (isOnYouTube()) {
         injectFAB();
+        if (isOnVideoPage()) handleVideoPage();
       } else {
         removeFAB();
       }
@@ -51,7 +49,22 @@
   }
 
   function isOnVideoPage() {
-    return location.hostname === 'www.youtube.com' && location.pathname === '/watch';
+    const p = location.pathname;
+    return location.hostname === 'www.youtube.com' &&
+           (p === '/watch' || p.startsWith('/shorts/'));
+  }
+
+  // Get watch URL (shorts use /shorts/id but comments need /watch?v=id)
+  function getVideoWatchUrl(video) {
+    if (video.type === 'shorts') return `https://www.youtube.com/watch?v=${video.videoId}`;
+    return video.url;
+  }
+
+  // Extract video ID from current URL (/watch?v=id or /shorts/id)
+  function getCurrentVideoId() {
+    const p = location.pathname;
+    if (p.startsWith('/shorts/')) return p.split('/shorts/')[1].split('?')[0];
+    return new URLSearchParams(location.search).get('v');
   }
 
   // ---- FAB Button ----
@@ -196,7 +209,18 @@
     document.getElementById('phyat-ac-start').addEventListener('click', startAutomation);
     document.getElementById('phyat-ac-stop').addEventListener('click', stopAutomation);
 
-    if (isRunning) {
+    // Restore running state from storage (survives page navigation)
+    const taskData = await new Promise(r => chrome.storage.local.get(TASK_KEY, r));
+    const activeTask = taskData[TASK_KEY];
+    if (activeTask && activeTask.status === 'running') {
+      isRunning = true;
+      document.getElementById('phyat-ac-start').style.display = 'none';
+      document.getElementById('phyat-ac-stop').style.display = 'inline-flex';
+      document.getElementById('phyat-ac-log-container').style.display = 'block';
+      const done = activeTask.currentIndex;
+      const total = activeTask.videos.length;
+      updateStatusUI(`Running: ${done}/${total} processed`);
+    } else if (isRunning) {
       document.getElementById('phyat-ac-start').style.display = 'none';
       document.getElementById('phyat-ac-stop').style.display = 'inline-flex';
     }
@@ -252,101 +276,85 @@
     const config = getConfigFromPanel();
     await saveConfig(config);
 
-    if (!config.commentText) {
+    if (!config.commentText.trim()) {
       showToast('⚠️ Please enter a comment text.', 'warning');
       return;
     }
-
     if (!config.categories.videos && !config.categories.lives && !config.categories.shorts) {
       showToast('⚠️ Please select at least one video category.', 'warning');
       return;
     }
 
-    isRunning = true;
-    abortController = new AbortController();
-
     document.getElementById('phyat-ac-start').style.display = 'none';
     document.getElementById('phyat-ac-stop').style.display = 'inline-flex';
     document.getElementById('phyat-ac-log-container').style.display = 'block';
 
-    showToast('▶ Auto commenting started!', 'success');
     updateStatusUI('Fetching your channel videos...');
+    appendLog('📡 Fetching channel videos...');
 
-    try {
-      await runCommentAutomation(config, abortController.signal);
-    } catch (err) {
-      if (err.name !== 'AbortError') {
-        console.error('[PHYAT:AutoComments] Error:', err);
-        showToast('❌ Error during auto commenting. Check console.', 'error');
-      }
+    const channelUrl = await getChannelUrl();
+    if (!channelUrl) {
+      showToast('⚠️ Could not detect your channel. Visit your channel page first.', 'warning');
+      restoreStoppedUI();
+      return;
     }
 
-    isRunning = false;
-    document.getElementById('phyat-ac-start') && (document.getElementById('phyat-ac-start').style.display = 'inline-flex');
-    document.getElementById('phyat-ac-stop') && (document.getElementById('phyat-ac-stop').style.display = 'none');
-    hideStatusUI();
-  }
+    const videos = await fetchChannelVideos(channelUrl, config.categories);
+    if (!videos.length) {
+      appendLog('⚠️ No matching videos found.');
+      showToast('⚠️ No videos found matching your criteria.', 'warning');
+      restoreStoppedUI();
+      return;
+    }
 
-  function stopAutomation() {
+    appendLog(`📋 Found ${videos.length} video(s). Starting...`);
+    showToast('▶ Auto commenting started!', 'success');
+
+    // Persist task so it survives page navigation
+    const task = {
+      status: 'running',
+      videos,
+      currentIndex: 0,
+      commented: 0,
+      skipped: 0,
+      config
+    };
+    await new Promise(r => chrome.storage.local.set({ [TASK_KEY]: task }, r));
+    isRunning = true;
+    abortController = new AbortController();
+
+    // Navigate to first video (use watch URL for shorts)
+    await sleep(300);
+    window.location.href = getVideoWatchUrl(videos[0]);
+  }
+  async function stopAutomation() {
     abortController?.abort();
+    await new Promise(r => chrome.storage.local.remove(TASK_KEY, r));
     isRunning = false;
+    restoreStoppedUI();
     showToast('⏹ Auto commenting stopped.', 'info');
   }
 
-  async function runCommentAutomation(config, signal) {
-    // Fetch channel videos from YouTube's public page
-    const channelUrl = await getChannelUrl();
-    if (!channelUrl) {
-      showToast('⚠️ Could not detect your channel. Please go to your channel page.', 'warning');
-      return;
-    }
-
-    appendLog('📡 Fetching channel videos...');
-    const videos = await fetchChannelVideos(channelUrl, config.categories);
-
-    if (videos.length === 0) {
-      appendLog('⚠️ No matching videos found.');
-      showToast('⚠️ No videos found matching your criteria.', 'warning');
-      return;
-    }
-
-    appendLog(`📋 Found ${videos.length} video(s) to process.`);
-    let commented = 0;
-    let skipped = 0;
-
-    for (let i = 0; i < videos.length; i++) {
-      if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
-
-      const video = videos[i];
-      updateStatusUI(`Processing ${i + 1}/${videos.length}: ${video.title.substring(0, 40)}...`);
-      showProgress(i, videos.length, `Commenting on: ${video.title}`, 'Auto Comments');
-
-      // Navigate to video and comment
-      appendLog(`📝 [${i + 1}/${videos.length}] ${video.title}`);
-
-      const success = await commentOnVideo(video, config.commentText, signal, config.autoLike);
-
-      if (success === 'skipped') {
-        skipped++;
-        appendLog(`⏭️ Skipped (already commented)`);
-      } else if (success) {
-        commented++;
-        appendLog(`✅ Commented successfully`);
-      } else {
-        appendLog(`❌ Failed to comment`);
-      }
-
-      // Delay between comments
-      if (i < videos.length - 1 && !signal.aborted) {
-        updateStatusUI(`Waiting ${config.delayBetweenSeconds}s...`);
-        await abortableSleep(config.delayBetweenSeconds * 1000, signal);
-      }
-    }
-
-    hideProgress();
-    appendLog(`\n🏁 Done! ${commented} commented, ${skipped} skipped, ${videos.length - commented - skipped} failed.`);
-    showToast(`✅ Auto comments done: ${commented} commented, ${skipped} skipped.`, 'success');
+  function restoreRunningUI(task) {
+    isRunning = true;
+    const startBtn = document.getElementById('phyat-ac-start');
+    const stopBtn = document.getElementById('phyat-ac-stop');
+    const logCont = document.getElementById('phyat-ac-log-container');
+    if (startBtn) startBtn.style.display = 'none';
+    if (stopBtn) stopBtn.style.display = 'inline-flex';
+    if (logCont) logCont.style.display = 'block';
   }
+
+  function restoreStoppedUI() {
+    isRunning = false;
+    const startBtn = document.getElementById('phyat-ac-start');
+    const stopBtn = document.getElementById('phyat-ac-stop');
+    if (startBtn) startBtn.style.display = 'inline-flex';
+    if (stopBtn) stopBtn.style.display = 'none';
+    hideProgress();
+    hideStatusUI();
+  }
+
 
   // ---- Channel detection ----
 
@@ -489,27 +497,13 @@
 
   // ---- Comment on a single video ----
 
-  async function commentOnVideo(video, commentText, signal, autoLike = false) {
+  async function doCommentOnCurrentPage(commentText, onlyUncommented, autoLike, signal) {
     try {
-      // Navigate to the video page in the current tab
-      // We use fetch + DOM manipulation approach to avoid leaving the page
-      // Open the video, scroll to comments, type, submit
-
-      // Save current scroll position
-      const scrollY = window.scrollY;
-
-      // Navigate to video
-      window.location.href = video.url;
-
-      // Wait for page to load
-      await sleep(4000);
-      if (signal.aborted) return false;
-
       // Auto-like if enabled
       if (autoLike) {
-        // Scroll to top to make like button accessible
         window.scrollTo(0, 0);
         await sleep(500);
+        if (signal.aborted) return false;
         const likeBtn = document.querySelector(
           'like-button-view-model button[aria-label], ' +
           '#segmented-like-button button[aria-label], ' +
@@ -525,32 +519,28 @@
         }
       }
 
-      // Wait for comments section
+      // Wait for comments section (lazy-loaded)
       const commentsSection = await waitForElement('#comments', 15000).catch(() => null);
       if (!commentsSection) {
         console.log('[PHYAT:AutoComments] Comments section not found');
         return false;
       }
 
-      // Scroll to comments to trigger lazy load
       commentsSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
       await sleep(2000);
       if (signal.aborted) return false;
 
-      // Check if already commented (if onlyUncommented is set)
-      // Look for user's own comment
-      const config = await loadConfig();
-      if (config.onlyUncommented) {
+      // Check if already commented
+      if (onlyUncommented) {
         const ownComments = document.querySelectorAll('#author-text.yt-simple-endpoint');
         for (const commentAuthor of ownComments) {
-          // Check if any comment is from the current user
           if (commentAuthor.closest('ytd-comment-renderer')?.querySelector('#author-comment-badge')) {
             return 'skipped';
           }
         }
       }
 
-      // Find and click the comment input placeholder
+      // Click comment placeholder to activate input
       const commentPlaceholder = await waitForElement('#placeholder-area, #simplebox-placeholder', 10000).catch(() => null);
       if (!commentPlaceholder) {
         console.log('[PHYAT:AutoComments] Comment input not found');
@@ -559,25 +549,25 @@
 
       commentPlaceholder.click();
       await sleep(1000);
+      if (signal.aborted) return false;
 
-      // Find the actual contenteditable input
+      // Contenteditable input
       const commentInput = await waitForElement('#contenteditable-root, #creation-box #contenteditable-root', 5000).catch(() => null);
       if (!commentInput) {
         console.log('[PHYAT:AutoComments] Comment contenteditable not found');
         return false;
       }
 
-      // Type the comment
       commentInput.focus();
       commentInput.textContent = commentText;
       commentInput.dispatchEvent(new Event('input', { bubbles: true }));
       await sleep(500);
+      if (signal.aborted) return false;
 
-      // Click submit button
+      // Submit
       const submitBtn = document.querySelector('#submit-button ytd-button-renderer button') ||
                         document.querySelector('#submit-button button') ||
                         document.querySelector('ytd-button-renderer#submit-button button');
-
       if (!submitBtn) {
         console.log('[PHYAT:AutoComments] Submit button not found');
         return false;
@@ -585,40 +575,94 @@
 
       submitBtn.click();
       await sleep(2000);
-
-      console.log(`[PHYAT:AutoComments] ✓ Commented on: ${video.title}`);
       return true;
     } catch (err) {
-      console.error(`[PHYAT:AutoComments] Error commenting on ${video.videoId}:`, err);
+      if (err.name === 'AbortError') throw;
+      console.error('[PHYAT:AutoComments] Error commenting:', err);
       return false;
     }
   }
 
-  // ---- Pending task (resume after navigation) ----
 
-  async function checkPendingTask() {
+  // ---- Video page worker (persistent task driven) ----
+
+  async function handleVideoPage() {
     const data = await new Promise(r => chrome.storage.local.get(TASK_KEY, r));
     const task = data[TASK_KEY];
     if (!task || task.status !== 'running') return;
 
-    // Resume automation from where we left off
-    console.log('[PHYAT:AutoComments] Resuming pending task...');
-    // Task resume logic handled by the video page handler
-  }
+    // Match current video to expected task video
+    const currentId = getCurrentVideoId();
+    const expectedVideo = task.videos[task.currentIndex];
+    if (!expectedVideo) return;
 
-  async function handleVideoPage() {
-    // Check if we have a pending auto-comment task for this video
-    const data = await new Promise(r => chrome.storage.local.get(TASK_KEY, r));
-    const task = data[TASK_KEY];
-    if (!task || task.status !== 'commenting') return;
+    const expectedId = expectedVideo.videoId;
+    if (currentId !== expectedId) return; // navigated elsewhere, skip
 
-    const currentVideoId = new URLSearchParams(location.search).get('v');
-    if (task.currentVideoId === currentVideoId) {
-      // We navigated to this video for commenting
-      await sleep(3000);
-      // The commenting logic is integrated in commentOnVideo
+    // Restore UI (may have been reset after page load)
+    restoreRunningUI(task);
+    abortController = abortController ?? new AbortController();
+    const signal = abortController.signal;
+
+    const idx = task.currentIndex;
+    const total = task.videos.length;
+
+    updateStatusUI(`Commenting ${idx + 1}/${total}: ${expectedVideo.title.substring(0, 40)}...`);
+    appendLog(`📝 [${idx + 1}/${total}] ${expectedVideo.title}`);
+    showProgress(idx, total, `Commenting: ${expectedVideo.title}`, 'Auto Comments');
+
+    // Wait for page to be ready (called 1500-2000ms after nav, still need more time)
+    await sleep(3000);
+    if (signal.aborted) { restoreStoppedUI(); return; }
+
+    let result = false;
+    try {
+      result = await doCommentOnCurrentPage(task.config.commentText, task.config.onlyUncommented, task.config.autoLike, signal);
+    } catch (err) {
+      if (err.name !== 'AbortError') console.error('[PHYAT:AutoComments] Error:', err);
+    }
+
+    if (signal.aborted) { restoreStoppedUI(); return; }
+
+    // Re-check task not stopped externally
+    const latest = await new Promise(r => chrome.storage.local.get(TASK_KEY, r));
+    if (!latest[TASK_KEY] || latest[TASK_KEY].status !== 'running') {
+      restoreStoppedUI();
+      return;
+    }
+
+    if (result === 'skipped') {
+      task.skipped++;
+      appendLog('⏭️ Skipped (already commented)');
+    } else if (result) {
+      task.commented++;
+      appendLog('✅ Commented successfully');
+    } else {
+      appendLog('❌ Failed to comment');
+    }
+
+    task.currentIndex++;
+
+    if (task.currentIndex >= task.videos.length) {
+      const fail = task.videos.length - task.commented - task.skipped;
+      appendLog(`\n🏁 Done! ${task.commented} commented, ${task.skipped} skipped, ${fail} failed.`);
+      showToast(`✅ Done: ${task.commented} commented, ${task.skipped} skipped.`, 'success');
+      hideProgress();
+      await new Promise(r => chrome.storage.local.remove(TASK_KEY, r));
+      restoreStoppedUI();
+    } else {
+      await new Promise(r => chrome.storage.local.set({ [TASK_KEY]: task }, r));
+      const delay = task.config.delayBetweenSeconds * 1000;
+      updateStatusUI(`Waiting ${task.config.delayBetweenSeconds}s before next video...`);
+      appendLog(`⏳ Next in ${task.config.delayBetweenSeconds}s...`);
+      setTimeout(() => {
+        if (!abortController?.signal.aborted) {
+          window.location.href = getVideoWatchUrl(task.videos[task.currentIndex]);
+        }
+      }, delay);
     }
   }
+
 
   // ---- UI helpers ----
 
