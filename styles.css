@@ -31,7 +31,7 @@
 }
 
 /* ---- FAB Button ---- */
-#phyat-fab {
+.phyat-fab {
   position: fixed;
   bottom: 32px;
   right: 32px;
@@ -42,7 +42,7 @@
   font-family: var(--phyat-font);
 }
 
-#phyat-fab.phyat-fab-visible {
+.phyat-fab.phyat-fab-visible {
   opacity: 1;
   transform: translateY(0) scale(1);
 }
