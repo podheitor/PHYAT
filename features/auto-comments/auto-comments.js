@@ -577,7 +577,7 @@
       await sleep(2000);
       return true;
     } catch (err) {
-      if (err.name === 'AbortError') throw;
+      if (err.name === 'AbortError') throw err;
       console.error('[PHYAT:AutoComments] Error commenting:', err);
       return false;
     }
