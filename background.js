@@ -1,11 +1,11 @@
-// PHYBRV - PodHeitor YouTube Bulk Related Video
-// Background Service Worker (minimal - session-based auth, no OAuth2)
+// PHYAT - PodHeitor YouTube Automation Tools
+// Background Service Worker
 // Author: Heitor Faria | License: GPL v3
 
-// This extension uses YouTube Studio's existing session for authentication.
-// No background API calls needed - all API calls go through page_bridge.js
-// which runs in the page context and uses the user's cookies.
-
-chrome.runtime.onInstalled.addListener(() => {
-  console.log('[PHYBRV] Extension installed. Navigate to YouTube Studio to use.');
+chrome.runtime.onInstalled.addListener((details) => {
+  if (details.reason === 'install') {
+    console.log('[PHYAT] Extension installed. Features available on YouTube & YouTube Studio.');
+  } else if (details.reason === 'update') {
+    console.log('[PHYAT] Extension updated to v2.0.0');
+  }
 });

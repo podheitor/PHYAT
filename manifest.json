@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "PHYBRV - PodHeitor YouTube Bulk Related Video",
-  "version": "1.2.0",
-  "description": "Bulk set Related Video on multiple YouTube Studio videos simultaneously. Browse your channel's videos and apply a related video to all selected videos at once.",
+  "name": "PHYAT - PodHeitor YouTube Automation Tools",
+  "version": "2.0.0",
+  "description": "YouTube automation toolkit: bulk related video, automatic live chat messages, and auto comments for your channel.",
   "author": "Heitor Faria",
   "homepage_url": "https://www.youtube.com/@podheitor",
   "permissions": [
@@ -10,7 +10,8 @@
     "storage"
   ],
   "host_permissions": [
-    "https://studio.youtube.com/*"
+    "https://studio.youtube.com/*",
+    "https://www.youtube.com/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -18,7 +19,21 @@
   "content_scripts": [
     {
       "matches": ["https://studio.youtube.com/*"],
-      "js": ["modal.js", "content.js"],
+      "js": [
+        "core/utils.js",
+        "modal.js",
+        "features/related-video/related-video.js"
+      ],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": [
+        "core/utils.js",
+        "features/live-chat/live-chat.js",
+        "features/auto-comments/auto-comments.js"
+      ],
       "css": ["styles.css"],
       "run_at": "document_idle"
     }

@@ -1,4 +1,4 @@
-// PHYBRV - Page Bridge Script
+// PHYAT - Page Bridge Script
 // Runs in the PAGE context to access YouTube Studio's internal APIs.
 // Uses exact request format intercepted from YouTube Studio's own calls.
 // Author: Heitor Faria | License: GPL v3
@@ -12,21 +12,21 @@
   // Listen for requests from the content script
   window.addEventListener('message', (event) => {
     if (event.source !== window) return;
-    if (!event.data || event.data.source !== 'phybrv-content') return;
+    if (!event.data || event.data.source !== 'phyat-content') return;
 
     const { action, requestId } = event.data;
 
     if (action === 'fetchVideos') {
       fetchAllChannelVideos(event.data.pageToken)
-        .then(data => window.postMessage({ source: 'phybrv-bridge', requestId, data }, '*'))
+        .then(data => window.postMessage({ source: 'phyat-bridge', requestId, data }, '*'))
         .catch(err => {
-          console.error('[PHYBRV Bridge] fetchVideos error:', err);
+          console.error('[PHYAT Bridge] fetchVideos error:', err);
           // Fallback to DOM scraping
           const domVideos = scrapeVideosFromDOM();
           if (domVideos.length > 0) {
-            window.postMessage({ source: 'phybrv-bridge', requestId, data: { videos: domVideos, nextPageToken: null, totalResults: domVideos.length } }, '*');
+            window.postMessage({ source: 'phyat-bridge', requestId, data: { videos: domVideos, nextPageToken: null, totalResults: domVideos.length } }, '*');
           } else {
-            window.postMessage({ source: 'phybrv-bridge', requestId, error: err.message }, '*');
+            window.postMessage({ source: 'phyat-bridge', requestId, error: err.message }, '*');
           }
         });
     }
@@ -34,13 +34,13 @@
     if (action === 'searchVideos') {
       const query = (event.data.query || '').trim();
       searchChannelVideos(query)
-        .then(data => window.postMessage({ source: 'phybrv-bridge', requestId, data }, '*'))
+        .then(data => window.postMessage({ source: 'phyat-bridge', requestId, data }, '*'))
         .catch(err => {
-          console.error('[PHYBRV Bridge] searchVideos error:', err);
+          console.error('[PHYAT Bridge] searchVideos error:', err);
           // Fallback: filter cached + DOM videos
           const allVids = _allVideosCache.length > 0 ? _allVideosCache : scrapeVideosFromDOM();
           const filtered = filterByMultipleTerms(allVids, query);
-          window.postMessage({ source: 'phybrv-bridge', requestId, data: { videos: filtered, nextPageToken: null, totalResults: filtered.length } }, '*');
+          window.postMessage({ source: 'phyat-bridge', requestId, data: { videos: filtered, nextPageToken: null, totalResults: filtered.length } }, '*');
         });
     }
   });
@@ -98,7 +98,7 @@
         delegationContext = btoa(raw);
       }
     } catch (e) {
-      console.warn('[PHYBRV Bridge] Could not build delegation context:', e);
+      console.warn('[PHYAT Bridge] Could not build delegation context:', e);
     }
 
     const headers = {
@@ -196,7 +196,7 @@
             results.push(...r.videos);
             if (r.nextPageToken) { newState.uploadsPT = r.nextPageToken; hasMore = true; }
           })
-          .catch(e => console.error('[PHYBRV] Uploads fetch error:', e))
+          .catch(e => console.error('[PHYAT] Uploads fetch error:', e))
       );
     }
 
@@ -215,7 +215,7 @@
             results.push(...r.videos);
             if (r.nextPageToken) { newState.shortsPT = r.nextPageToken; hasMore = true; }
           })
-          .catch(e => console.error('[PHYBRV] Shorts fetch error:', e))
+          .catch(e => console.error('[PHYAT] Shorts fetch error:', e))
       );
     }
 
@@ -234,7 +234,7 @@
             results.push(...r.videos);
             if (r.nextPageToken) { newState.livesPT = r.nextPageToken; hasMore = true; }
           })
-          .catch(e => console.error('[PHYBRV] Lives fetch error:', e))
+          .catch(e => console.error('[PHYAT] Lives fetch error:', e))
       );
     }
 
@@ -255,7 +255,7 @@
       return true;
     });
 
-    console.log(`[PHYBRV Bridge] Fetched ${unique.length} total videos (uploads + shorts + lives)`);
+    console.log(`[PHYAT Bridge] Fetched ${unique.length} total videos (uploads + shorts + lives)`);
 
     // Cache all videos for search
     if (!pageToken) {
@@ -326,7 +326,7 @@
 
     if (!response.ok) {
       const errText = await response.text().catch(() => '');
-      console.error('[PHYBRV Bridge] API error:', response.status, errText.substring(0, 500));
+      console.error('[PHYAT Bridge] API error:', response.status, errText.substring(0, 500));
       throw new Error(`API failed: ${response.status}`);
     }
 
@@ -438,7 +438,7 @@
     for (const key of Object.keys(video)) {
       if (/title/i.test(key) && typeof video[key] === 'string' && video[key]) return video[key];
     }
-    console.warn('[PHYBRV] Could not extract title. Keys:', Object.keys(video), 'title field:', JSON.stringify(t));
+    console.warn('[PHYAT] Could not extract title. Keys:', Object.keys(video), 'title field:', JSON.stringify(t));
     return 'Untitled';
   }
 
@@ -452,13 +452,13 @@
 
     // Debug: log the raw structure of first video items
     if (items.length > 0) {
-      console.log('[PHYBRV Bridge] Raw API response keys:', Object.keys(data));
-      console.log('[PHYBRV Bridge] First raw video item:', JSON.stringify(items[0]).substring(0, 2000));
+      console.log('[PHYAT Bridge] Raw API response keys:', Object.keys(data));
+      console.log('[PHYAT Bridge] First raw video item:', JSON.stringify(items[0]).substring(0, 2000));
       if (items.length > 1) {
-        console.log('[PHYBRV Bridge] Second raw video item:', JSON.stringify(items[1]).substring(0, 2000));
+        console.log('[PHYAT Bridge] Second raw video item:', JSON.stringify(items[1]).substring(0, 2000));
       }
     } else {
-      console.warn('[PHYBRV Bridge] No items found. Full response:', JSON.stringify(data).substring(0, 3000));
+      console.warn('[PHYAT Bridge] No items found. Full response:', JSON.stringify(data).substring(0, 3000));
     }
 
     for (const item of items) {
@@ -536,6 +536,6 @@
   }
 
   // Signal ready
-  window.postMessage({ source: 'phybrv-bridge', action: 'ready' }, '*');
-  console.log('[PHYBRV Bridge] Loaded (v1.3.0 - with mask + multi-word search)');
+  window.postMessage({ source: 'phyat-bridge', action: 'ready' }, '*');
+  console.log('[PHYAT Bridge] Loaded (v1.3.0 - with mask + multi-word search)');
 })();

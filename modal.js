@@ -1,8 +1,8 @@
-// PHYBRV - PodHeitor YouTube Bulk Related Video
+// PHYAT - PodHeitor YouTube Automation Tools
 // Modal UI Component (Session-based, no OAuth2 required)
 // Author: Heitor Faria | License: GPL v3
 
-class PHYBRVModal {
+class PHYATModal {
   constructor() {
     this.overlay = null;
     this.videos = [];
@@ -21,11 +21,11 @@ class PHYBRVModal {
    */
   _bridgeRequest(action, data = {}) {
     return new Promise((resolve, reject) => {
-      const requestId = `phybrv-${++this._requestCounter}-${Date.now()}`;
+      const requestId = `phyat-${++this._requestCounter}-${Date.now()}`;
 
       const handler = (event) => {
         if (event.source !== window) return;
-        if (!event.data || event.data.source !== 'phybrv-bridge') return;
+        if (!event.data || event.data.source !== 'phyat-bridge') return;
         if (event.data.requestId !== requestId) return;
 
         window.removeEventListener('message', handler);
@@ -46,7 +46,7 @@ class PHYBRVModal {
       }, 15000);
 
       window.postMessage({
-        source: 'phybrv-content',
+        source: 'phyat-content',
         action,
         requestId,
         ...data
@@ -73,35 +73,35 @@ class PHYBRVModal {
    */
   createOverlay() {
     // Remove existing overlay if any
-    const existing = document.getElementById('phybrv-modal-overlay');
+    const existing = document.getElementById('phyat-modal-overlay');
     if (existing) existing.remove();
 
     this.overlay = document.createElement('div');
-    this.overlay.id = 'phybrv-modal-overlay';
+    this.overlay.id = 'phyat-modal-overlay';
     this.overlay.innerHTML = `
-      <div class="phybrv-modal">
-        <div class="phybrv-modal-header">
-          <div class="phybrv-modal-title-row">
-            <div class="phybrv-modal-icon">
+      <div class="phyat-modal">
+        <div class="phyat-modal-header">
+          <div class="phyat-modal-title-row">
+            <div class="phyat-modal-icon">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                 <path d="M10 8l6 4-6 4V8z" fill="#FF0000"/>
                 <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816z" fill="none" stroke="#FF0000" stroke-width="1.5"/>
               </svg>
             </div>
             <h2>Select Related Video</h2>
-            <button class="phybrv-modal-close" id="phybrv-close-btn" title="Close">
+            <button class="phyat-modal-close" id="phyat-close-btn" title="Close">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
               </svg>
             </button>
           </div>
-          <p class="phybrv-modal-subtitle">Browse your channel's videos and select one to set as the Related Video for the selected videos.</p>
-          <div class="phybrv-search-container">
-            <svg class="phybrv-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <p class="phyat-modal-subtitle">Browse your channel's videos and select one to set as the Related Video for the selected videos.</p>
+          <div class="phyat-search-container">
+            <svg class="phyat-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
               <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
             </svg>
-            <input type="text" id="phybrv-search-input" placeholder="Search your videos..." autocomplete="off" />
-            <button class="phybrv-search-clear" id="phybrv-search-clear" title="Clear search" style="display:none">
+            <input type="text" id="phyat-search-input" placeholder="Search your videos..." autocomplete="off" />
+            <button class="phyat-search-clear" id="phyat-search-clear" title="Clear search" style="display:none">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
               </svg>
@@ -109,20 +109,20 @@ class PHYBRVModal {
           </div>
         </div>
 
-        <div class="phybrv-modal-body" id="phybrv-video-grid">
-          <div class="phybrv-loading-container">
-            <div class="phybrv-spinner"></div>
+        <div class="phyat-modal-body" id="phyat-video-grid">
+          <div class="phyat-loading-container">
+            <div class="phyat-spinner"></div>
             <p>Loading your videos...</p>
           </div>
         </div>
 
-        <div class="phybrv-modal-footer">
-          <div class="phybrv-selected-info" id="phybrv-selected-info">
-            <span class="phybrv-no-selection">No video selected</span>
+        <div class="phyat-modal-footer">
+          <div class="phyat-selected-info" id="phyat-selected-info">
+            <span class="phyat-no-selection">No video selected</span>
           </div>
-          <div class="phybrv-modal-actions">
-            <button class="phybrv-btn phybrv-btn-cancel" id="phybrv-cancel-btn">Cancel</button>
-            <button class="phybrv-btn phybrv-btn-confirm" id="phybrv-confirm-btn" disabled>
+          <div class="phyat-modal-actions">
+            <button class="phyat-btn phyat-btn-cancel" id="phyat-cancel-btn">Cancel</button>
+            <button class="phyat-btn phyat-btn-confirm" id="phyat-confirm-btn" disabled>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-right:6px">
                 <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
               </svg>
@@ -137,7 +137,7 @@ class PHYBRVModal {
 
     // Force reflow then add active class for animation
     requestAnimationFrame(() => {
-      this.overlay.classList.add('phybrv-active');
+      this.overlay.classList.add('phyat-active');
     });
 
     this.bindEvents();
@@ -147,10 +147,10 @@ class PHYBRVModal {
    * Bind modal events
    */
   bindEvents() {
-    document.getElementById('phybrv-close-btn').addEventListener('click', () => this.close());
-    document.getElementById('phybrv-cancel-btn').addEventListener('click', () => this.close());
+    document.getElementById('phyat-close-btn').addEventListener('click', () => this.close());
+    document.getElementById('phyat-cancel-btn').addEventListener('click', () => this.close());
 
-    document.getElementById('phybrv-confirm-btn').addEventListener('click', () => {
+    document.getElementById('phyat-confirm-btn').addEventListener('click', () => {
       if (this.selectedVideo && this.onConfirm) {
         this.onConfirm(this.selectedVideo);
         this.close();
@@ -161,8 +161,8 @@ class PHYBRVModal {
       if (e.target === this.overlay) this.close();
     });
 
-    const searchInput = document.getElementById('phybrv-search-input');
-    const searchClear = document.getElementById('phybrv-search-clear');
+    const searchInput = document.getElementById('phyat-search-input');
+    const searchClear = document.getElementById('phyat-search-clear');
 
     searchInput.addEventListener('input', (e) => {
       const query = e.target.value.trim();
@@ -198,12 +198,12 @@ class PHYBRVModal {
     if (this.isLoading) return;
     this.isLoading = true;
 
-    const grid = document.getElementById('phybrv-video-grid');
+    const grid = document.getElementById('phyat-video-grid');
 
     if (this.videos.length === 0) {
       grid.innerHTML = `
-        <div class="phybrv-loading-container">
-          <div class="phybrv-spinner"></div>
+        <div class="phyat-loading-container">
+          <div class="phyat-spinner"></div>
           <p>Loading your videos...</p>
         </div>
       `;
@@ -239,11 +239,11 @@ class PHYBRVModal {
    * Render the video grid
    */
   renderVideos() {
-    const grid = document.getElementById('phybrv-video-grid');
+    const grid = document.getElementById('phyat-video-grid');
 
     if (this.videos.length === 0) {
       grid.innerHTML = `
-        <div class="phybrv-empty-state">
+        <div class="phyat-empty-state">
           <svg width="64" height="64" viewBox="0 0 24 24" fill="#666">
             <path d="M18 3v2h-2V3H8v2H6V3H4v18h16V3h-2zM6 19V7h12v12H6zm8-10H10v2h4V9zm-4 4h4v2h-4v-2z"/>
           </svg>
@@ -254,7 +254,7 @@ class PHYBRVModal {
       return;
     }
 
-    let html = '<div class="phybrv-video-list">';
+    let html = '<div class="phyat-video-list">';
 
     this.videos.forEach((video, index) => {
       const isSelected = this.selectedVideo && this.selectedVideo.videoId === video.videoId;
@@ -263,21 +263,21 @@ class PHYBRVModal {
         : '';
 
       html += `
-        <div class="phybrv-video-card ${isSelected ? 'phybrv-selected' : ''}"
+        <div class="phyat-video-card ${isSelected ? 'phyat-selected' : ''}"
              data-video-index="${index}"
              data-video-id="${video.videoId}">
-          <div class="phybrv-video-thumbnail-wrapper">
-            <img class="phybrv-video-thumbnail" src="${video.thumbnail}" alt="${this.escapeHtml(video.title)}" loading="lazy" />
-            ${video.duration ? `<span class="phybrv-video-duration">${video.duration}</span>` : ''}
-            <div class="phybrv-video-overlay">
+          <div class="phyat-video-thumbnail-wrapper">
+            <img class="phyat-video-thumbnail" src="${video.thumbnail}" alt="${this.escapeHtml(video.title)}" loading="lazy" />
+            ${video.duration ? `<span class="phyat-video-duration">${video.duration}</span>` : ''}
+            <div class="phyat-video-overlay">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
                 <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
               </svg>
             </div>
           </div>
-          <div class="phybrv-video-info">
-            <h3 class="phybrv-video-title" title="${this.escapeHtml(video.title)}">${this.escapeHtml(video.title)}</h3>
-            ${publishDate ? `<div class="phybrv-video-meta"><span>${publishDate}</span></div>` : ''}
+          <div class="phyat-video-info">
+            <h3 class="phyat-video-title" title="${this.escapeHtml(video.title)}">${this.escapeHtml(video.title)}</h3>
+            ${publishDate ? `<div class="phyat-video-meta"><span>${publishDate}</span></div>` : ''}
           </div>
         </div>
       `;
@@ -287,8 +287,8 @@ class PHYBRVModal {
 
     if (this.nextPageToken) {
       html += `
-        <div class="phybrv-load-more-container">
-          <button class="phybrv-btn phybrv-btn-load-more" id="phybrv-load-more-btn">
+        <div class="phyat-load-more-container">
+          <button class="phyat-btn phyat-btn-load-more" id="phyat-load-more-btn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-right:6px">
               <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
             </svg>
@@ -300,14 +300,14 @@ class PHYBRVModal {
 
     grid.innerHTML = html;
 
-    grid.querySelectorAll('.phybrv-video-card').forEach(card => {
+    grid.querySelectorAll('.phyat-video-card').forEach(card => {
       card.addEventListener('click', () => {
         const index = parseInt(card.dataset.videoIndex);
         this.selectVideo(index);
       });
     });
 
-    const loadMoreBtn = document.getElementById('phybrv-load-more-btn');
+    const loadMoreBtn = document.getElementById('phyat-load-more-btn');
     if (loadMoreBtn) {
       loadMoreBtn.addEventListener('click', () => this.loadVideos());
     }
@@ -322,31 +322,31 @@ class PHYBRVModal {
 
     this.selectedVideo = video;
 
-    document.querySelectorAll('.phybrv-video-card').forEach(card => {
-      card.classList.remove('phybrv-selected');
+    document.querySelectorAll('.phyat-video-card').forEach(card => {
+      card.classList.remove('phyat-selected');
     });
     const selectedCard = document.querySelector(`[data-video-index="${index}"]`);
-    if (selectedCard) selectedCard.classList.add('phybrv-selected');
+    if (selectedCard) selectedCard.classList.add('phyat-selected');
 
-    const infoEl = document.getElementById('phybrv-selected-info');
+    const infoEl = document.getElementById('phyat-selected-info');
     infoEl.innerHTML = `
-      <div class="phybrv-selected-preview">
+      <div class="phyat-selected-preview">
         <img src="${video.thumbnail}" alt="" />
-        <span class="phybrv-selected-title">${this.escapeHtml(video.title)}</span>
+        <span class="phyat-selected-title">${this.escapeHtml(video.title)}</span>
       </div>
     `;
 
-    document.getElementById('phybrv-confirm-btn').disabled = false;
+    document.getElementById('phyat-confirm-btn').disabled = false;
   }
 
   /**
    * Show error message in the modal
    */
   showError(message) {
-    const grid = document.getElementById('phybrv-video-grid');
+    const grid = document.getElementById('phyat-video-grid');
     if (grid) {
       grid.innerHTML = `
-        <div class="phybrv-error-state">
+        <div class="phyat-error-state">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="#f44336">
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
           </svg>
@@ -361,7 +361,7 @@ class PHYBRVModal {
    */
   close() {
     if (this.overlay) {
-      this.overlay.classList.remove('phybrv-active');
+      this.overlay.classList.remove('phyat-active');
       setTimeout(() => {
         this.overlay.remove();
         this.overlay = null;
@@ -387,4 +387,4 @@ class PHYBRVModal {
   }
 }
 
-window.PHYBRVModal = PHYBRVModal;
+window.PHYATModal = PHYATModal;

@@ -1,4 +1,4 @@
-/* PHYBRV - Popup Styles */
+/* PHYAT - Popup Styles */
 /* Author: Heitor Faria | License: GPL v3 */
 
 * {
@@ -8,8 +8,8 @@
 }
 
 body {
-  width: 320px;
-  min-height: 360px;
+  width: 360px;
+  min-height: 420px;
   background: #0f0f0f;
   color: #f1f1f1;
   font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
@@ -72,6 +72,63 @@ body {
   margin: 16px 0;
 }
 
+/* Features Section */
+.popup-features h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ddd;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.popup-feature-card {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  margin-bottom: 8px;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.popup-feature-card:hover {
+  background: #222;
+  border-color: #404040;
+}
+
+.popup-feature-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+.popup-feature-content h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f1f1f1;
+  margin-bottom: 4px;
+}
+
+.popup-feature-content p {
+  font-size: 11px;
+  color: #aaa;
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+.popup-feature-location {
+  font-size: 10px;
+  color: #717171;
+}
+
 /* Info Rows */
 .popup-info {
   display: flex;
@@ -113,42 +170,6 @@ body {
 .popup-status-connected {
   background: #2ea043;
   box-shadow: 0 0 6px rgba(46, 160, 67, 0.5);
-}
-
-/* Instructions */
-.popup-instructions {
-  margin-top: 4px;
-}
-
-.popup-instructions h3 {
-  font-size: 13px;
-  font-weight: 600;
-  color: #ddd;
-  margin-bottom: 10px;
-}
-
-.popup-instructions ol {
-  padding-left: 18px;
-  font-size: 12px;
-  color: #aaa;
-  line-height: 1.8;
-}
-
-.popup-instructions strong {
-  color: #ddd;
-  font-weight: 500;
-}
-
-/* Tip */
-.popup-tip {
-  margin-top: 14px;
-  padding: 10px 14px;
-  background: #1a2e1a;
-  border: 1px solid #2ea04333;
-  border-radius: 8px;
-  font-size: 12px;
-  color: #8fdf8f;
-  line-height: 1.5;
 }
 
 /* Footer */
