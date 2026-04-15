@@ -579,13 +579,22 @@
       await sleep(2000);
       if (signal.aborted) return false;
 
-      // Check if already commented
+      // Check if already commented (wait for comments to load first)
       if (onlyUncommented) {
-        const ownComments = document.querySelectorAll('#author-text.yt-simple-endpoint');
-        for (const commentAuthor of ownComments) {
-          if (commentAuthor.closest('ytd-comment-renderer')?.querySelector('#author-comment-badge')) {
-            return 'skipped';
-          }
+        // Wait for at least one comment thread to appear
+        await waitForElement('ytd-comment-thread-renderer', 6000).catch(() => null);
+        await sleep(500);
+
+        // Match against channel URL (stored in config) OR author badge
+        const cfg = await loadConfig();
+        const channelPath = cfg.channelUrl ? new URL(cfg.channelUrl).pathname.replace(/\/$/, '') : null;
+
+        const commentAuthors = document.querySelectorAll('#author-text.yt-simple-endpoint[href]');
+        for (const author of commentAuthors) {
+          const authorHref = (author.getAttribute('href') || '').replace(/\/$/, '');
+          const hasBadge = !!author.closest('ytd-comment-renderer')?.querySelector('#author-comment-badge');
+          const isOwnChannel = channelPath && (authorHref === channelPath || authorHref.startsWith(channelPath + '/'));
+          if (hasBadge || isOwnChannel) return 'skipped';
         }
       }
 
@@ -659,6 +668,16 @@
     updateStatusUI(`Commenting ${idx + 1}/${total}: ${expectedVideo.title.substring(0, 40)}...`);
     appendLog(`📝 [${idx + 1}/${total}] ${expectedVideo.title}`);
     showProgress(idx, total, `Commenting: ${expectedVideo.title}`, 'Auto Comments');
+    // Add stop button to progress overlay (feature-specific)
+    const progressEl = document.getElementById('phyat-progress-overlay');
+    if (progressEl && !progressEl.querySelector('.phyat-progress-stop')) {
+      const stopBtn = document.createElement('button');
+      stopBtn.className = 'phyat-btn phyat-btn-danger phyat-progress-stop';
+      stopBtn.style.cssText = 'margin-top:8px;width:100%;';
+      stopBtn.textContent = '⏹ Stop';
+      stopBtn.onclick = () => stopAutomation();
+      progressEl.querySelector('.phyat-progress-container')?.appendChild(stopBtn);
+    }
 
     // Wait for page to be ready (called 1500-2000ms after nav, still need more time)
     await sleep(3000);
