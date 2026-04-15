@@ -426,6 +426,23 @@
             }
           }
 
+          // Handle shorts (shortsLockupViewModel format)
+          const shortsModel = item?.richItemRenderer?.content?.shortsLockupViewModel;
+          if (shortsModel) {
+            const videoId = shortsModel.onTap?.innertubeCommand?.reelWatchEndpoint?.videoId ||
+                            shortsModel.entityId?.replace('shorts-shelf-item-', '');
+            const title = shortsModel.overlayMetadata?.primaryText?.content ||
+                          shortsModel.accessibilityText || '';
+            if (videoId) {
+              videos.push({
+                videoId,
+                title,
+                type: 'shorts',
+                url: `https://www.youtube.com/shorts/${videoId}`
+              });
+            }
+          }
+
           // Handle nested sections
           const sectionItems = item?.itemSectionRenderer?.contents;
           if (sectionItems) {
