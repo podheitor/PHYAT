@@ -31,7 +31,7 @@
 
   function watchNavigation() {
     const check = () => {
-      if (isYouTubeUserPage()) {
+      if (isYouTubeChannelPage()) {
         injectFAB();
       } else if (isOnVideoPage()) {
         handleVideoPage();
@@ -44,10 +44,10 @@
     setTimeout(check, 2000);
   }
 
-  function isYouTubeUserPage() {
+  function isYouTubeChannelPage() {
     const path = location.pathname;
     return location.hostname === 'www.youtube.com' &&
-           (path === '/' || path === '' || path.startsWith('/feed'));
+           (path.startsWith('/@') || path.startsWith('/channel/') || path.startsWith('/c/'));
   }
 
   function isOnVideoPage() {
@@ -343,20 +343,12 @@
   // ---- Channel detection ----
 
   function getMyChannelUrl() {
-    // Try to find channel URL from YouTube's sidebar or header
-    const channelLink = document.querySelector('a[href*="/channel/"][href*="youtube.com"]') ||
-                        document.querySelector('yt-formatted-string#channel-name a') ||
-                        document.querySelector('#avatar-link[href*="/channel/"]');
-    if (channelLink) return channelLink.href;
-
-    // Try from ytInitialGuideData
-    const guideItems = document.querySelectorAll('a.yt-simple-endpoint[href^="/@"]');
-    for (const item of guideItems) {
-      if (item.closest('#guide-section-renderer')) {
-        return `https://www.youtube.com${item.getAttribute('href')}`;
-      }
+    // Use current page URL if on channel page
+    const path = location.pathname;
+    if (path.startsWith('/@') || path.startsWith('/channel/') || path.startsWith('/c/')) {
+      const channelPath = path.replace(/\/videos.*|\/streams.*|\/shorts.*/, '');
+      return location.origin + channelPath;
     }
-
     return null;
   }
 
