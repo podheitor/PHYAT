@@ -158,7 +158,7 @@
           <div class="phyat-field">
             <label class="phyat-label">Messages</label>
             <p class="phyat-hint">One message per line. They will be sent in order (or randomly).</p>
-            <textarea id="phyat-livechat-messages" class="phyat-textarea" rows="6" placeholder="Type your messages here, one per line...&#10;Example: Thanks for watching!&#10;Don't forget to subscribe!">${config.messages.join('\n')}</textarea>
+            <textarea id="phyat-livechat-messages" class="phyat-textarea" rows="6" placeholder="Type your messages here, one per line...">${config.messages.join('\n')}</textarea>
           </div>
 
           <div class="phyat-field-row">
@@ -197,7 +197,7 @@
             <div class="phyat-field">
               <label class="phyat-label">LLM API Endpoint</label>
               <input type="text" id="phyat-lc-ai-endpoint" class="phyat-input" value="${escapeHtml(config.llmEndpoint)}" placeholder="https://api.openai.com/v1/chat/completions" />
-              <p class="phyat-hint">OpenAI-compatible. Ollama: http://localhost:11434/api/chat</p>
+              <p class="phyat-hint">OpenAI-compatible or Anthropic. Ollama: http://localhost:11434/api/chat</p>
             </div>
 
             <div class="phyat-field">
@@ -207,7 +207,12 @@
 
             <div class="phyat-field">
               <label class="phyat-label">Model</label>
-              <input type="text" id="phyat-lc-ai-model" class="phyat-input" value="${escapeHtml(config.llmModel)}" placeholder="gpt-4o-mini" />
+              <div style="display:flex;gap:6px;align-items:center;">
+                <select id="phyat-lc-ai-model" class="phyat-input" style="flex:1">
+                  <option value="${escapeHtml(config.llmModel)}" selected>${escapeHtml(config.llmModel)}</option>
+                </select>
+                <button type="button" id="phyat-lc-fetch-models" class="phyat-btn phyat-btn-secondary" style="white-space:nowrap;padding:6px 10px;font-size:12px">↻ Fetch</button>
+              </div>
             </div>
 
             <div class="phyat-field">
@@ -219,44 +224,10 @@
               <label class="phyat-label">Min delay between AI replies (seconds)</label>
               <input type="number" id="phyat-lc-ai-delay" class="phyat-input" min="10" max="300" value="${config.llmMinDelaySeconds}" />
             </div>
-          </div>
 
-          <div class="phyat-field" style="border-top:1px solid var(--phyat-border);padding-top:12px;margin-top:4px;">
-            <label class="phyat-label" style="font-size:13px;color:var(--phyat-text-muted);">🤖 AI Auto-Reply</label>
-          </div>
-
-          <div class="phyat-field">
-            <label class="phyat-checkbox-label">
-              <input type="checkbox" id="phyat-lc-ai-enabled" ${config.aiEnabled ? 'checked' : ''} />
-              <span>Enable AI to reply automatically to chat messages</span>
-            </label>
-          </div>
-
-          <div id="phyat-lc-ai-fields" style="display:${config.aiEnabled ? 'block' : 'none'}">
-            <div class="phyat-field">
-              <label class="phyat-label">LLM API Endpoint</label>
-              <input type="text" id="phyat-lc-ai-endpoint" class="phyat-input" value="${escapeHtml(config.llmEndpoint)}" placeholder="https://api.openai.com/v1/chat/completions" />
-              <p class="phyat-hint">OpenAI-compatible. Ollama: http://localhost:11434/api/chat</p>
-            </div>
-
-            <div class="phyat-field">
-              <label class="phyat-label">API Key</label>
-              <input type="password" id="phyat-lc-ai-key" class="phyat-input" value="${escapeHtml(config.llmApiKey)}" placeholder="sk-... (empty for local LLMs)" />
-            </div>
-
-            <div class="phyat-field">
-              <label class="phyat-label">Model</label>
-              <input type="text" id="phyat-lc-ai-model" class="phyat-input" value="${escapeHtml(config.llmModel)}" placeholder="gpt-4o-mini" />
-            </div>
-
-            <div class="phyat-field">
-              <label class="phyat-label">Persona (system prompt)</label>
-              <textarea id="phyat-lc-ai-persona" class="phyat-textarea" rows="3" placeholder="You are a helpful assistant for this live stream...">${escapeHtml(config.llmPersona)}</textarea>
-            </div>
-
-            <div class="phyat-field">
-              <label class="phyat-label">Min delay between AI replies (seconds)</label>
-              <input type="number" id="phyat-lc-ai-delay" class="phyat-input" min="10" max="300" value="${config.llmMinDelaySeconds}" />
+            <div class="phyat-field" style="display:flex;justify-content:flex-end;">
+              <button type="button" id="phyat-lc-test-api" class="phyat-btn phyat-btn-secondary" style="font-size:12px;padding:6px 12px;">🧪 Test API</button>
+              <span id="phyat-lc-test-result" style="margin-left:8px;font-size:12px;align-self:center;"></span>
             </div>
           </div>
 
@@ -287,11 +258,11 @@
       document.getElementById('phyat-lc-ai-fields').style.display = e.target.checked ? 'block' : 'none';
     });
 
-    document.getElementById('phyat-lc-ai-enabled').addEventListener('change', (e) => {
-      document.getElementById('phyat-lc-ai-fields').style.display = e.target.checked ? 'block' : 'none';
-    });
+    document.getElementById('phyat-lc-fetch-models').addEventListener('click', () => fetchModels());
+    document.getElementById('phyat-lc-test-api').addEventListener('click', () => testLLMApi());
 
     if (isRunning) updateStatusUI();
+
   }
 
   function closeConfigPanel() {
@@ -566,6 +537,104 @@
         reject(new DOMException('Aborted', 'AbortError'));
       }, { once: true });
     });
+  }
+
+  // ---- UI helpers: fetch model list + test API connection ----
+
+  async function fetchModels() {
+    const btn = document.getElementById('phyat-lc-fetch-models');
+    const sel = document.getElementById('phyat-lc-ai-model');
+    if (!btn || !sel) return;
+
+    const endpoint = document.getElementById('phyat-lc-ai-endpoint')?.value?.trim() || '';
+    const apiKey   = document.getElementById('phyat-lc-ai-key')?.value || '';
+    if (!endpoint) { alert('Set the LLM API Endpoint first.'); return; }
+
+    btn.disabled = true;
+    btn.textContent = '...';
+
+    try {
+      const isAnthropic = endpoint.includes('anthropic.com');
+      const isOllama    = endpoint.includes('localhost') || endpoint.includes('127.0.0.1');
+      let modelsUrl, headers, parseResp;
+
+      if (isAnthropic) {
+        // Anthropic: static model list (no public models API)
+        const anthropicModels = [
+          'claude-opus-4-5', 'claude-sonnet-4-5', 'claude-haiku-4-5',
+          'claude-opus-4-0', 'claude-sonnet-4-0',
+          'claude-3-5-haiku-20241022', 'claude-3-5-sonnet-20241022',
+          'claude-3-haiku-20240307', 'claude-3-opus-20240229'
+        ];
+        populateModelSelect(sel, anthropicModels);
+        btn.textContent = '↻ Fetch';
+        btn.disabled = false;
+        return;
+      } else if (isOllama) {
+        // Determine base URL from endpoint
+        const base = endpoint.replace(/\/api\/(chat|generate).*$/, '');
+        modelsUrl = `${base}/api/tags`;
+        headers = { 'content-type': 'application/json' };
+        parseResp = (data) => (data?.models || []).map(m => m.name || m.model).filter(Boolean);
+      } else {
+        // OpenAI-compatible /v1/models
+        const base = endpoint.replace(/\/chat\/completions.*$/, '');
+        modelsUrl = `${base}/models`;
+        headers = {
+          'content-type': 'application/json',
+          ...(apiKey ? { 'authorization': `Bearer ${apiKey}` } : {})
+        };
+        parseResp = (data) => (data?.data || []).map(m => m.id).filter(Boolean).sort();
+      }
+
+      const resp = await fetch(modelsUrl, { method: 'GET', headers });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      const models = parseResp(data);
+      if (!models.length) throw new Error('No models returned');
+      populateModelSelect(sel, models);
+    } catch (err) {
+      console.error('[PHYAT:LiveChat] fetchModels error:', err);
+      alert(`Could not fetch models: ${err.message}`);
+    }
+
+    btn.textContent = '↻ Fetch';
+    btn.disabled = false;
+  }
+
+  function populateModelSelect(sel, models) {
+    const current = sel.value;
+    sel.innerHTML = models.map(m =>
+      `<option value="${m}"${m === current ? ' selected' : ''}>${m}</option>`
+    ).join('');
+    // If current selected is not in list, prepend it
+    if (!models.includes(current) && current) {
+      sel.insertAdjacentHTML('afterbegin', `<option value="${current}" selected>${current}</option>`);
+    }
+  }
+
+  async function testLLMApi() {
+    const btn    = document.getElementById('phyat-lc-test-api');
+    const result = document.getElementById('phyat-lc-test-result');
+    if (!btn || !result) return;
+
+    btn.disabled = true;
+    result.style.color = 'var(--phyat-text-muted)';
+    result.textContent = 'Testing…';
+
+    const config = getConfigFromPanel();
+    const testHistory = [{ role: 'user', content: 'Reply with exactly: OK' }];
+    const reply = await callLLMApi(config, testHistory);
+
+    if (reply) {
+      result.style.color = '#22c55e';
+      result.textContent = `✓ ${reply.slice(0, 60)}`;
+    } else {
+      result.style.color = '#ef4444';
+      result.textContent = '✗ Connection failed — check endpoint/key';
+    }
+
+    btn.disabled = false;
   }
 
   // ---- AI Auto-Reply ----
