@@ -381,32 +381,45 @@
 
   async function fetchChannelVideos(channelUrl, categories) {
     const videos = [];
+    const tabType = [];
+    if (categories.videos) tabType.push('/videos');
+    if (categories.lives) tabType.push('/streams');
+    if (categories.shorts) tabType.push('/shorts');
 
-    // Build tab URLs to fetch
-    const tabs = [];
-    if (categories.videos) tabs.push('/videos');
-    if (categories.lives) tabs.push('/streams');
-    if (categories.shorts) tabs.push('/shorts');
-
-    for (const tab of tabs) {
+    for (const tab of tabType) {
       try {
         const tabUrl = channelUrl.replace(/\/$/, '') + tab;
         appendLog(`📂 Scanning: ${tab}`);
 
-        // Fetch the tab page to extract video data
         const response = await fetch(tabUrl, {
           credentials: 'same-origin',
           headers: { 'Accept': 'text/html' }
         });
         const html = await response.text();
 
-        // Extract video data from ytInitialData
+        // Extract INNERTUBE_API_KEY for continuation requests
+        const apiKeyMatch = html.match(/"INNERTUBE_API_KEY"\s*:\s*"([^"]+)"/);
+        const apiKey = apiKeyMatch?.[1];
+
         const dataMatch = html.match(/var ytInitialData\s*=\s*({.+?});\s*<\/script>/s);
-        if (dataMatch) {
-          const data = JSON.parse(dataMatch[1]);
-          const extracted = extractVideosFromData(data, tab);
-          videos.push(...extracted);
+        if (!dataMatch) continue;
+
+        const data = JSON.parse(dataMatch[1]);
+        const { videos: pageVideos, token } = extractVideosFromData(data, tab);
+        videos.push(...pageVideos);
+
+        // Follow continuation tokens to get all videos (max 30 pages = ~1440 items)
+        let nextToken = token;
+        let page = 0;
+        while (nextToken && apiKey && page < 30) {
+          page++;
+          appendLog(`📂 Scanning: ${tab} (page ${page + 1}...)`);
+          const more = await fetchContinuation(apiKey, nextToken, tab);
+          videos.push(...more.videos);
+          nextToken = more.token;
         }
+
+        appendLog(`✅ ${tab}: ${videos.filter(v => v.type === tab.slice(1)).length} found`);
       } catch (err) {
         console.error(`[PHYAT:AutoComments] Error fetching ${tab}:`, err);
         appendLog(`⚠️ Error fetching ${tab}`);
@@ -416,84 +429,120 @@
     return videos;
   }
 
-  function extractVideosFromData(data, tab) {
-    const videos = [];
+  async function fetchContinuation(apiKey, token, tab) {
+    try {
+      const resp = await fetch(
+        `https://www.youtube.com/youtubei/v1/browse?key=${apiKey}&prettyPrint=false`,
+        {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            continuation: token,
+            context: {
+              client: {
+                clientName: 'WEB',
+                clientVersion: '2.20240101.00.00',
+                hl: 'en'
+              }
+            }
+          })
+        }
+      );
+      const data = await resp.json();
+      const items =
+        data?.onResponseReceivedActions?.[0]?.appendContinuationItemsAction?.continuationItems ||
+        data?.onResponseReceivedActions?.[1]?.appendContinuationItemsAction?.continuationItems ||
+        [];
+      return extractRichItems(items, tab);
+    } catch (err) {
+      console.error('[PHYAT:AutoComments] Continuation error:', err);
+      return { videos: [], token: null };
+    }
+  }
 
-    // Navigate the ytInitialData structure to find video renderers
+  // Extract videos + next continuation token from a list of richItems
+  function extractRichItems(items, tab) {
+    const videos = [];
+    let token = null;
+    const tabName = tab.replace('/', '');
+
+    for (const item of items) {
+      // Continuation token for next page
+      const contToken = item?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token;
+      if (contToken) { token = contToken; continue; }
+
+      // Standard video
+      const renderer = item?.richItemRenderer?.content?.videoRenderer ||
+                       item?.richItemRenderer?.content?.reelItemRenderer ||
+                       item?.gridVideoRenderer ||
+                       item?.videoRenderer;
+      if (renderer?.videoId) {
+        const title = renderer.title?.runs?.[0]?.text ||
+                      renderer.headline?.simpleText ||
+                      renderer.title?.simpleText || '';
+        videos.push({
+          videoId: renderer.videoId,
+          title,
+          type: tabName,
+          url: `https://www.youtube.com/watch?v=${renderer.videoId}`
+        });
+        continue;
+      }
+
+      // Shorts (shortsLockupViewModel format)
+      const shortsModel = item?.richItemRenderer?.content?.shortsLockupViewModel;
+      if (shortsModel) {
+        const videoId = shortsModel.onTap?.innertubeCommand?.reelWatchEndpoint?.videoId ||
+                        shortsModel.entityId?.replace('shorts-shelf-item-', '');
+        const title = shortsModel.overlayMetadata?.primaryText?.content ||
+                      shortsModel.accessibilityText || '';
+        if (videoId) {
+          videos.push({ videoId, title, type: 'shorts', url: `https://www.youtube.com/shorts/${videoId}` });
+        }
+        continue;
+      }
+
+      // Nested sections
+      const sectionItems = item?.itemSectionRenderer?.contents;
+      if (sectionItems) {
+        for (const si of sectionItems) {
+          const gridItems = si?.gridRenderer?.items || si?.shelfRenderer?.content?.gridRenderer?.items || [];
+          for (const gi of gridItems) {
+            const r = gi?.gridVideoRenderer || gi?.videoRenderer;
+            if (r?.videoId) {
+              videos.push({
+                videoId: r.videoId,
+                title: r.title?.runs?.[0]?.text || r.title?.simpleText || '',
+                type: tabName,
+                url: `https://www.youtube.com/watch?v=${r.videoId}`
+              });
+            }
+          }
+        }
+      }
+    }
+    return { videos, token };
+  }
+
+  function extractVideosFromData(data, tab) {
     try {
       const tabContent = data?.contents?.twoColumnBrowseResultsRenderer?.tabs;
-      if (!tabContent) return videos;
+      if (!tabContent) return { videos: [], token: null };
 
       for (const t of tabContent) {
         const content = t?.tabRenderer?.content;
         const items = content?.richGridRenderer?.contents ||
                       content?.sectionListRenderer?.contents;
         if (!items) continue;
-
-        for (const item of items) {
-          const renderer = item?.richItemRenderer?.content?.videoRenderer ||
-                           item?.richItemRenderer?.content?.reelItemRenderer ||
-                           item?.gridVideoRenderer ||
-                           item?.videoRenderer;
-
-          if (renderer) {
-            const videoId = renderer.videoId;
-            const title = renderer.title?.runs?.[0]?.text ||
-                          renderer.headline?.simpleText ||
-                          renderer.title?.simpleText || '';
-            if (videoId && title) {
-              videos.push({
-                videoId,
-                title,
-                type: tab.replace('/', ''),
-                url: `https://www.youtube.com/watch?v=${videoId}`
-              });
-            }
-          }
-
-          // Handle shorts (shortsLockupViewModel format)
-          const shortsModel = item?.richItemRenderer?.content?.shortsLockupViewModel;
-          if (shortsModel) {
-            const videoId = shortsModel.onTap?.innertubeCommand?.reelWatchEndpoint?.videoId ||
-                            shortsModel.entityId?.replace('shorts-shelf-item-', '');
-            const title = shortsModel.overlayMetadata?.primaryText?.content ||
-                          shortsModel.accessibilityText || '';
-            if (videoId) {
-              videos.push({
-                videoId,
-                title,
-                type: 'shorts',
-                url: `https://www.youtube.com/shorts/${videoId}`
-              });
-            }
-          }
-
-          // Handle nested sections
-          const sectionItems = item?.itemSectionRenderer?.contents;
-          if (sectionItems) {
-            for (const si of sectionItems) {
-              const gridItems = si?.gridRenderer?.items || si?.shelfRenderer?.content?.gridRenderer?.items || [];
-              for (const gi of gridItems) {
-                const r = gi?.gridVideoRenderer || gi?.videoRenderer;
-                if (r?.videoId) {
-                  videos.push({
-                    videoId: r.videoId,
-                    title: r.title?.runs?.[0]?.text || r.title?.simpleText || '',
-                    type: tab.replace('/', ''),
-                    url: `https://www.youtube.com/watch?v=${r.videoId}`
-                  });
-                }
-              }
-            }
-          }
-        }
+        return extractRichItems(items, tab);
       }
     } catch (err) {
       console.error('[PHYAT:AutoComments] Parse error:', err);
     }
-
-    return videos;
+    return { videos: [], token: null };
   }
+
 
   // ---- Comment on a single video ----
 
