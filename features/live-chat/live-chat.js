@@ -207,12 +207,10 @@
 
             <div class="phyat-field">
               <label class="phyat-label">Model</label>
-              <div style="display:flex;gap:6px;align-items:center;">
-                <select id="phyat-lc-ai-model" class="phyat-input" style="flex:1">
-                  <option value="${escapeHtml(config.llmModel)}" selected>${escapeHtml(config.llmModel)}</option>
-                </select>
-                <button type="button" id="phyat-lc-fetch-models" class="phyat-btn phyat-btn-secondary" style="white-space:nowrap;padding:6px 10px;font-size:12px">↻ Fetch</button>
-              </div>
+              <select id="phyat-lc-ai-model" class="phyat-input" style="width:100%">
+                <option value="${escapeHtml(config.llmModel)}" selected>${escapeHtml(config.llmModel)}</option>
+              </select>
+              <button type="button" id="phyat-lc-fetch-models" class="phyat-btn phyat-btn-secondary" style="margin-top:6px;width:100%;font-size:12px">↻ Fetch available models</button>
             </div>
 
             <div class="phyat-field">
