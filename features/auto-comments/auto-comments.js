@@ -18,7 +18,9 @@
     commentText: '',
     categories: { videos: true, lives: false, shorts: false },
     onlyUncommented: true,
-    delayBetweenSeconds: 15
+    delayBetweenSeconds: 15,
+    autoLike: false,
+    channelUrl: ''
   };
 
   // ---- Initialize ----
@@ -31,10 +33,10 @@
 
   function watchNavigation() {
     const check = () => {
-      if (isYouTubeChannelPage()) {
-        injectFAB();
-      } else if (isOnVideoPage()) {
+      if (isOnVideoPage()) {
         handleVideoPage();
+      } else if (isOnYouTube()) {
+        injectFAB();
       } else {
         removeFAB();
       }
@@ -44,10 +46,8 @@
     setTimeout(check, 2000);
   }
 
-  function isYouTubeChannelPage() {
-    const path = location.pathname;
-    return location.hostname === 'www.youtube.com' &&
-           (path.startsWith('/@') || path.startsWith('/channel/') || path.startsWith('/c/'));
+  function isOnYouTube() {
+    return location.hostname === 'www.youtube.com';
   }
 
   function isOnVideoPage() {
@@ -156,6 +156,13 @@
           </div>
 
           <div class="phyat-field">
+            <label class="phyat-checkbox-label">
+              <input type="checkbox" id="phyat-ac-auto-like" ${config.autoLike ? 'checked' : ''} />
+              <span>Auto-like video when commenting</span>
+            </label>
+          </div>
+
+          <div class="phyat-field">
             <label class="phyat-label">Delay between comments (seconds)</label>
             <input type="number" id="phyat-ac-delay" class="phyat-input" min="5" max="300" value="${config.delayBetweenSeconds}" />
             <p class="phyat-hint">Minimum 5s. Higher = safer against spam detection.</p>
@@ -234,6 +241,7 @@
         shorts: document.getElementById('phyat-ac-cat-shorts')?.checked ?? false
       },
       onlyUncommented: document.getElementById('phyat-ac-only-uncommented')?.checked ?? true,
+      autoLike: document.getElementById('phyat-ac-auto-like')?.checked ?? false,
       delayBetweenSeconds: Math.max(5, parseInt(document.getElementById('phyat-ac-delay')?.value) || 15)
     };
   }
@@ -287,7 +295,7 @@
 
   async function runCommentAutomation(config, signal) {
     // Fetch channel videos from YouTube's public page
-    const channelUrl = getMyChannelUrl();
+    const channelUrl = await getChannelUrl();
     if (!channelUrl) {
       showToast('⚠️ Could not detect your channel. Please go to your channel page.', 'warning');
       return;
@@ -316,7 +324,7 @@
       // Navigate to video and comment
       appendLog(`📝 [${i + 1}/${videos.length}] ${video.title}`);
 
-      const success = await commentOnVideo(video, config.commentText, signal);
+      const success = await commentOnVideo(video, config.commentText, signal, config.autoLike);
 
       if (success === 'skipped') {
         skipped++;
@@ -342,14 +350,23 @@
 
   // ---- Channel detection ----
 
-  function getMyChannelUrl() {
-    // Use current page URL if on channel page
+  async function getChannelUrl() {
+    // If currently on a channel page, use it and save it
     const path = location.pathname;
     if (path.startsWith('/@') || path.startsWith('/channel/') || path.startsWith('/c/')) {
       const channelPath = path.replace(/\/videos.*|\/streams.*|\/shorts.*/, '');
-      return location.origin + channelPath;
+      const url = location.origin + channelPath;
+      // Save for later use from other pages
+      const cfg = await loadConfig();
+      if (cfg.channelUrl !== url) {
+        cfg.channelUrl = url;
+        await saveConfig(cfg);
+      }
+      return url;
     }
-    return null;
+    // Fall back to saved channel URL
+    const cfg = await loadConfig();
+    return cfg.channelUrl || null;
   }
 
   // ---- Fetch channel videos ----
@@ -472,7 +489,7 @@
 
   // ---- Comment on a single video ----
 
-  async function commentOnVideo(video, commentText, signal) {
+  async function commentOnVideo(video, commentText, signal, autoLike = false) {
     try {
       // Navigate to the video page in the current tab
       // We use fetch + DOM manipulation approach to avoid leaving the page
@@ -487,6 +504,26 @@
       // Wait for page to load
       await sleep(4000);
       if (signal.aborted) return false;
+
+      // Auto-like if enabled
+      if (autoLike) {
+        // Scroll to top to make like button accessible
+        window.scrollTo(0, 0);
+        await sleep(500);
+        const likeBtn = document.querySelector(
+          'like-button-view-model button[aria-label], ' +
+          '#segmented-like-button button[aria-label], ' +
+          'ytd-toggle-button-renderer#like-button button'
+        );
+        if (likeBtn) {
+          const isLiked = likeBtn.getAttribute('aria-pressed') === 'true';
+          if (!isLiked) {
+            likeBtn.click();
+            await sleep(500);
+            console.log('[PHYAT:AutoComments] ✓ Liked video');
+          }
+        }
+      }
 
       // Wait for comments section
       const commentsSection = await waitForElement('#comments', 15000).catch(() => null);
